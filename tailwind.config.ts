@@ -45,24 +45,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // TRUE DARK MODE
-        dark: {
-          bg: "#000000",
-          "bg-secondary": "#000000",
-          "bg-tertiary": "#0A0A0A",
-          card: "#000000",
-          border: "#1A1A1A",
-          "border-light": "#2A2A2A",
-        },
         gold: {
           DEFAULT: "#D4AF37",
           light: "#E6C547",
           dark: "#B8941F",
-        },
-        text: {
-          primary: "#FFFFFF",
-          secondary: "#B3B3B3",
-          muted: "#666666",
         },
       },
       borderRadius: {
@@ -83,19 +69,13 @@ const config: Config = {
           "0%, 100%": { boxShadow: "0 0 5px rgba(212, 175, 55, 0.3)" },
           "50%": { boxShadow: "0 0 20px rgba(212, 175, 55, 0.6)" },
         },
-        "subtle-pulse": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.8" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "gold-glow": "gold-glow 3s ease-in-out infinite",
-        "subtle-pulse": "subtle-pulse 2s ease-in-out infinite",
       },
       backgroundImage: {
-        "dark-gradient": "linear-gradient(135deg, #000000 0%, #0A0A0A 50%, #111111 100%)",
         "gold-gradient": "linear-gradient(135deg, #D4AF37 0%, #E6C547 100%)",
       },
     },
