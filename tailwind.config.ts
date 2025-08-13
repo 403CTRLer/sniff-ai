@@ -3,13 +3,20 @@ import type { Config } from "tailwindcss"
 const config: Config = {
   darkMode: ["class"],
   content: [
-    "app/**/*.{ts,tsx}",
-    "components/**/*.{ts,tsx}",
     "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -45,11 +52,25 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // SniffAI custom colors
         gold: {
-          DEFAULT: "#D4AF37",
-          light: "#E6C547",
-          dark: "#B8941F",
+          DEFAULT: "#FFD700",
+          light: "#FFED4E",
+          dark: "#B8860B",
         },
+        "dark-bg": {
+          primary: "#0A0A0A",
+          secondary: "#1A1A1A",
+          tertiary: "#2A2A2A",
+        },
+        "dark-card": "#111111",
+        "dark-border": "#333333",
+        "text-secondary": "#A0A0A0",
+        "text-muted": "#666666",
+      },
+      backgroundImage: {
+        "gold-gradient": "linear-gradient(135deg, #FFD700 0%, #FFED4E 100%)",
+        "dark-gradient": "linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 100%)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,18 +86,20 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "gold-glow": {
-          "0%, 100%": { boxShadow: "0 0 5px rgba(212, 175, 55, 0.3)" },
-          "50%": { boxShadow: "0 0 20px rgba(212, 175, 55, 0.6)" },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "gold-glow": "gold-glow 3s ease-in-out infinite",
-      },
-      backgroundImage: {
-        "gold-gradient": "linear-gradient(135deg, #D4AF37 0%, #E6C547 100%)",
+        "fade-in": "fade-in 0.5s ease-out",
+        "slide-in": "slide-in 0.3s ease-out",
       },
     },
   },
