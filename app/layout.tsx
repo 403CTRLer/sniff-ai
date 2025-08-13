@@ -3,15 +3,15 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
 import { QueryProvider } from "@/components/query-provider"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SniffAI - AI-Powered Code Review and Analysis",
-  description: "Advanced code analysis with AI-powered insights, security scanning, and comprehensive reporting",
-    generator: 'v0.dev'
+  title: "SniffAI - AI-Powered Code Analysis",
+  description: "Comprehensive code analysis with AI-powered insights, security scanning, and quality checks.",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

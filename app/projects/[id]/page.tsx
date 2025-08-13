@@ -1,7 +1,6 @@
 "use client"
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,32 +16,30 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Play, Trash2, Clock, CheckCircle, XCircle, GitBranch, Upload, ExternalLink } from "lucide-react"
+import { Play, Trash2, ArrowLeft, Clock, CheckCircle, XCircle, GitBranch, Upload } from "lucide-react"
 import { apiService } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
 
-export default function ProjectDetailPage() {
-  const params = useParams()
+export default function ProjectPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const { toast } = useToast()
   const queryClient = useQueryClient()
-  const projectId = params.id as string
+  const { toast } = useToast()
 
-  const { data: project, isLoading } = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => apiService.getProject(projectId),
+  const { data: project, isLoading: projectLoading } = useQuery({
+    queryKey: ["project", params.id],
+    queryFn: () => apiService.getProject(params.id),
   })
 
-  const { data: runs = [] } = useQuery({
-    queryKey: ["project-runs", projectId],
-    queryFn: () => apiService.getProjectRuns(projectId),
+  const { data: runs = [], isLoading: runsLoading } = useQuery({
+    queryKey: ["project-runs", params.id],
+    queryFn: () => apiService.getProjectRuns(params.id),
     enabled: !!project,
   })
 
-  const deleteProjectMutation = useMutation({
-    mutationFn: () => apiService.deleteProject(projectId),
+  const deleteMutation = useMutation({
+    mutationFn: () => apiService.deleteProject(params.id),
     onSuccess: () => {
       toast({
         title: "Project deleted",
@@ -50,25 +47,29 @@ export default function ProjectDetailPage() {
       })
       router.push("/")
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to delete project. Please try again.",
+        title: "Delete failed",
+        description: error.message || "Failed to delete project.",
         variant: "destructive",
       })
     },
   })
 
-  const startAnalysisMutation = useMutation({
-    mutationFn: () => apiService.startAnalysis(projectId),
+  const analysisMutation = useMutation({
+    mutationFn: () => apiService.startAnalysis(params.id),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["project-runs", projectId] })
-      router.push(`/projects/${projectId}/runs/${data.runId}`)
-    },
-    onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to start analysis. Please try again.",
+        title: "Analysis started",
+        description: "New analysis has been queued successfully.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["project-runs", params.id] })
+      router.push(`/projects/${params.id}/runs/${data.runId}`)
+    },
+    onError: (error) => {
+      toast({
+        title: "Analysis failed",
+        description: error.message || "Failed to start analysis.",
         variant: "destructive",
       })
     },
@@ -85,7 +86,7 @@ export default function ProjectDetailPage() {
       case "failed":
         return <XCircle className="w-4 h-4 text-red-500" />
       default:
-        return <Clock className="w-4 h-4 text-gray-500" />
+        return null
     }
   }
 
@@ -104,7 +105,7 @@ export default function ProjectDetailPage() {
     )
   }
 
-  if (isLoading) {
+  if (projectLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
@@ -119,10 +120,7 @@ export default function ProjectDetailPage() {
           <h1 className="text-2xl font-bold mb-2">Project not found</h1>
           <p className="text-muted-foreground mb-4">The project you're looking for doesn't exist.</p>
           <Button asChild>
-            <Link href="/">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Link>
+            <Link href="/">Go back home</Link>
           </Button>
         </div>
       </div>
@@ -131,110 +129,71 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Link>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">{project.name}</h1>
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  {project.source === "git" ? <GitBranch className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                  <span className="capitalize">{project.source}</span>
-                  {project.sourceUrl && (
-                    <>
-                      <span>•</span>
-                      <a
-                        href={project.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-gold transition-colors flex items-center space-x-1"
-                      >
-                        <span className="truncate max-w-64">{project.sourceUrl}</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={() => startAnalysisMutation.mutate()}
-                disabled={startAnalysisMutation.isPending}
-                className="bg-gold text-black hover:bg-gold-light"
-              >
-                {startAnalysisMutation.isPending ? (
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <Play className="w-4 h-4 mr-2" />
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Projects
+              </Link>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <div className="flex items-center space-x-2 text-muted-foreground">
+                {project.source === "git" ? <GitBranch className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                <span className="capitalize">{project.source}</span>
+                {project.sourceUrl && (
+                  <>
+                    <span>•</span>
+                    <span className="text-sm">{project.sourceUrl}</span>
+                  </>
                 )}
-                Start Analysis
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Project</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete "{project.name}"? This action cannot be undone. All analysis runs
-                      and results will be permanently deleted.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => deleteProjectMutation.mutate()}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete Project
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              </div>
             </div>
           </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => analysisMutation.mutate()}
+              disabled={analysisMutation.isPending}
+              className="bg-gold text-black hover:bg-gold-light"
+            >
+              {analysisMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              Start Analysis
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deleteMutation.isPending}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Project
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this project? This action cannot be undone and will remove all
+                    analysis runs and results.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Project Metadata */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Project Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <h4 className="font-medium mb-2">Created</h4>
-                <p className="text-muted-foreground">
-                  {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Last Updated</h4>
-                <p className="text-muted-foreground">
-                  {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Total Runs</h4>
-                <p className="text-muted-foreground">{runs.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Analysis Runs */}
         <Card>
@@ -243,21 +202,21 @@ export default function ProjectDetailPage() {
             <CardDescription>History of all analysis runs for this project</CardDescription>
           </CardHeader>
           <CardContent>
-            {runs.length === 0 ? (
+            {runsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : runs.length === 0 ? (
               <div className="text-center py-12">
                 <Play className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No analysis runs yet</h3>
                 <p className="text-muted-foreground mb-6">Start your first analysis to see results here</p>
                 <Button
-                  onClick={() => startAnalysisMutation.mutate()}
-                  disabled={startAnalysisMutation.isPending}
+                  onClick={() => analysisMutation.mutate()}
+                  disabled={analysisMutation.isPending}
                   className="bg-gold text-black hover:bg-gold-light"
                 >
-                  {startAnalysisMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <Play className="w-4 h-4 mr-2" />
-                  )}
+                  <Play className="w-4 h-4 mr-2" />
                   Start Analysis
                 </Button>
               </div>
@@ -266,7 +225,6 @@ export default function ProjectDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Run ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Started</TableHead>
                       <TableHead>Duration</TableHead>
@@ -278,14 +236,6 @@ export default function ProjectDetailPage() {
                     {runs.map((run: any) => (
                       <TableRow key={run.id}>
                         <TableCell>
-                          <Link
-                            href={`/projects/${projectId}/runs/${run.id}`}
-                            className="font-mono text-sm hover:text-gold transition-colors"
-                          >
-                            {run.id.slice(0, 8)}...
-                          </Link>
-                        </TableCell>
-                        <TableCell>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(run.status)}
                             {getStatusBadge(run.status)}
@@ -294,27 +244,30 @@ export default function ProjectDetailPage() {
                         <TableCell className="text-muted-foreground">
                           {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {run.duration ? `${run.duration}s` : "-"}
+                        <TableCell>
+                          {run.duration ? `${run.duration}s` : run.status === "running" ? "In progress..." : "-"}
                         </TableCell>
                         <TableCell>
                           {run.findingsCount !== undefined ? (
-                            <Badge variant="outline">{run.findingsCount} findings</Badge>
+                            <Badge variant="outline">{run.findingsCount} issues</Badge>
                           ) : (
                             "-"
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/projects/${projectId}/runs/${run.id}`}>View</Link>
+                          {run.status === "running" ? (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/projects/${params.id}/runs/${run.id}`}>View Progress</Link>
                             </Button>
-                            {run.status === "succeeded" && (
-                              <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/projects/${projectId}/runs/${run.id}/results`}>Results</Link>
-                              </Button>
-                            )}
-                          </div>
+                          ) : run.status === "succeeded" ? (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/projects/${params.id}/runs/${run.id}/results`}>View Results</Link>
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/projects/${params.id}/runs/${run.id}`}>View Details</Link>
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

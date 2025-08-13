@@ -24,6 +24,22 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Custom colors */
+    --gold: 45 93% 58%;
+    --gold-light: 48 100% 67%;
+    --dark-bg: 222 84% 5%;
+    --dark-bg-secondary: 217 33% 17%;
+    --dark-bg-tertiary: 215 28% 17%;
+    --dark-card: 222 84% 5%;
+    --dark-border: 217 33% 17%;
+    --text-secondary: 215 20% 65%;
+    --text-muted: 217 10% 40%;
   }
 
   .dark {
@@ -58,57 +74,61 @@
   }
 }
 
-/* Custom scrollbar styles */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: #374151 #1f2937;
+/* Custom animations */
+@keyframes gold-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.5);
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
+.animate-gold-glow {
+  animation: gold-glow 2s ease-in-out infinite;
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: #1f2937;
+.bg-gold-gradient {
+  background: linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(var(--gold-light)) 100%);
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: #374151;
-  border-radius: 3px;
+.text-gold {
+  color: hsl(var(--gold));
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: #4b5563;
+.bg-gold {
+  background-color: hsl(var(--gold));
 }
 
-/* Terminal-style log viewer */
-.terminal {
-  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
-  background: #0d1117;
-  color: #c9d1d9;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+.hover\:bg-gold-light:hover {
+  background-color: hsl(var(--gold-light));
 }
 
-.terminal .log-timestamp {
-  color: #7c3aed;
+.border-gold {
+  border-color: hsl(var(--gold));
 }
 
-.terminal .log-info {
-  color: #06b6d4;
+.bg-dark-bg {
+  background-color: hsl(var(--dark-bg));
 }
 
-.terminal .log-warning {
-  color: #f59e0b;
+.bg-dark-card {
+  background-color: hsl(var(--dark-card));
 }
 
-.terminal .log-error {
-  color: #ef4444;
+.border-dark-border {
+  border-color: hsl(var(--dark-border));
 }
 
-.terminal .log-success {
-  color: #10b981;
+.text-text-secondary {
+  color: hsl(var(--text-secondary));
+}
+
+.text-text-muted {
+  color: hsl(var(--text-muted));
+}
+
+.bg-dark-bg-tertiary {
+  background-color: hsl(var(--dark-bg-tertiary));
 }
