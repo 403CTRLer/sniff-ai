@@ -1,381 +1,316 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { MainLayout } from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { UploadModal } from "@/components/upload-modal"
-import { CloneModal } from "@/components/clone-modal"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { StatsCard } from "@/components/ui/stats-card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { UploadModal } from "@/components/upload/upload-modal"
 import {
   Upload,
+  FolderOpen,
   GitBranch,
-  Search,
-  MoreHorizontal,
-  Trash2,
-  Play,
-  Eye,
+  Code,
+  Shield,
+  Target,
+  Activity,
   Clock,
   CheckCircle,
   XCircle,
-  Loader2,
-  Code,
+  AlertCircle,
+  Play,
 } from "lucide-react"
-import { apiService } from "@/lib/api"
-import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import type { Project } from "@/lib/models"
+import { ClientOperations } from "@/lib/client-operations"
 
-export default function HomePage() {
+export default function DashboardPage() {
+  const router = useRouter()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [cloneModalOpen, setCloneModalOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null)
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
-
-  const {
-    data: projects = [],
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["projects"],
-    queryFn: apiService.getProjects,
-    refetchInterval: 5000, // Refetch every 5 seconds to get status updates
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    totalRuns: 0,
+    completedRuns: 0,
+    failedRuns: 0,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: apiService.deleteProject,
-    onSuccess: () => {
-      toast({
-        title: "Project deleted",
-        description: "The project has been successfully deleted.",
-      })
-      queryClient.invalidateQueries({ queryKey: ["projects"] })
-      setDeleteProjectId(null)
-    },
-    onError: (error) => {
-      toast({
-        title: "Delete failed",
-        description: error.message || "Failed to delete project. Please try again.",
-        variant: "destructive",
-      })
-    },
-  })
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
-  const startAnalysisMutation = useMutation({
-    mutationFn: apiService.startAnalysis,
-    onSuccess: (data, projectId) => {
-      toast({
-        title: "Analysis started",
-        description: "The analysis has been queued and will begin shortly.",
-      })
-      queryClient.invalidateQueries({ queryKey: ["projects"] })
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to start analysis",
-        description: error.message || "Could not start analysis. Please try again.",
-        variant: "destructive",
-      })
-    },
-  })
+  const loadDashboardData = async () => {
+    try {
+      const projectsData = await ClientOperations.getProjects()
 
-  const handleProjectCreated = () => {
-    refetch()
+      // Calculate stats from projects data
+      const statsData = {
+        totalProjects: projectsData.length,
+        totalRuns: 0,
+        completedRuns: 0,
+        failedRuns: 0,
+      }
+
+      // Get run stats for each project
+      for (const project of projectsData) {
+        const runs = await ClientOperations.getProjectRuns(project.id)
+        statsData.totalRuns += runs.length
+        statsData.completedRuns += runs.filter((run) => run.status === "completed").length
+        statsData.failedRuns += runs.filter((run) => run.status === "failed").length
+      }
+
+      setProjects(projectsData)
+      setStats(statsData)
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteProject = (projectId: string) => {
-    deleteMutation.mutate(projectId)
+  const handleUploadFile = () => {
+    setUploadModalOpen(true)
   }
 
-  const handleStartAnalysis = (projectId: string) => {
-    startAnalysisMutation.mutate(projectId)
+  const handleSelectProject = () => {
+    setUploadModalOpen(true)
+  }
+
+  const handleCloneRepo = () => {
+    setUploadModalOpen(true)
+  }
+
+  const handleProjectCreated = (projectId: string) => {
+    console.log("Project created:", projectId)
+    setUploadModalOpen(false)
+    // Navigate to project page
+    router.push(`/projects/${projectId}`)
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "succeeded":
-        return <CheckCircle className="w-4 h-4 text-green-500" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-green-400" />
       case "failed":
-        return <XCircle className="w-4 h-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-red-400" />
       case "running":
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-      case "queued":
-        return <Clock className="w-4 h-4 text-yellow-500" />
+        return <Activity className="h-4 w-4 text-[#D4AF37] animate-pulse" />
       default:
-        return <Clock className="w-4 h-4 text-gray-500" />
+        return <Clock className="h-4 w-4 text-gray-400" />
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "succeeded":
-        return "bg-green-500/10 text-green-500 border-green-500/20"
-      case "failed":
-        return "bg-red-500/10 text-red-500 border-red-500/20"
-      case "running":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20"
-      case "queued":
-        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-      default:
-        return "bg-gray-500/10 text-gray-500 border-gray-500/20"
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      completed: "bg-green-900 text-green-400 border-green-400",
+      failed: "bg-red-900 text-red-400 border-red-400",
+      running: "bg-yellow-900 text-yellow-400 border-yellow-400",
+      queued: "bg-gray-900 text-gray-400 border-gray-400",
     }
-  }
-
-  const filteredProjects = projects.filter(
-    (project) =>
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (project.sourceUrl && project.sourceUrl.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return variants[status as keyof typeof variants] || variants.queued
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gold to-gold-light bg-clip-text text-transparent">
-                SniffAI
-              </h1>
-              <p className="text-muted-foreground">Advanced Code Analysis Platform</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => setUploadModalOpen(true)}
-                className="bg-gold text-black hover:bg-gold-light font-medium"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Files
-              </Button>
-              <Button
-                onClick={() => setCloneModalOpen(true)}
-                variant="outline"
-                className="border-gold/50 text-gold hover:bg-gold/10"
-              >
-                <GitBranch className="w-4 h-4 mr-2" />
-                Clone Repository
-              </Button>
-            </div>
+    <MainLayout>
+      <div className="container px-6 py-8 space-y-8">
+        {/* Hero Section */}
+        <div className="text-center space-y-6">
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-6xl font-bold">
+              <span className="text-gradient-gold">SniffAI</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+              AI-powered code review and analysis for security, quality, and AI detection
+            </p>
           </div>
-        </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Search and Stats */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full" />
-              <span>{projects.filter((p) => p.lastRunStatus === "succeeded").length} Completed</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <span>{projects.filter((p) => p.lastRunStatus === "running").length} Running</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full" />
-              <span>{projects.filter((p) => p.lastRunStatus === "failed").length} Failed</span>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-2xl mx-auto">
+            <Button
+              onClick={handleUploadFile}
+              size="lg"
+              className="w-full sm:w-auto bg-[#D4AF37] hover:bg-[#FFD700] text-[#0D0D0D] font-semibold"
+            >
+              <Upload className="mr-2 h-5 w-5" />
+              Upload File / ZIP
+            </Button>
+            <Button
+              onClick={handleSelectProject}
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto border-[#333333] hover:border-[#D4AF37] bg-transparent"
+            >
+              <FolderOpen className="mr-2 h-5 w-5" />
+              Select Local Project
+            </Button>
+            <Button
+              onClick={handleCloneRepo}
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto border-[#333333] hover:border-[#D4AF37] bg-transparent"
+            >
+              <GitBranch className="mr-2 h-5 w-5" />
+              Clone Repository
+            </Button>
           </div>
         </div>
 
-        {/* Projects Grid */}
-        {filteredProjects.length === 0 ? (
-          <div className="text-center py-12">
-            {projects.length === 0 ? (
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatsCard
+            title="Total Projects"
+            value={stats.totalProjects}
+            description="Projects analyzed"
+            icon={Code}
+            badge={{ text: "All Time" }}
+          />
+          <StatsCard
+            title="Analysis Runs"
+            value={stats.totalRuns}
+            description="Total analysis runs"
+            icon={Activity}
+            badge={{ text: "All Time" }}
+          />
+          <StatsCard
+            title="Completed"
+            value={stats.completedRuns}
+            description="Successful analyses"
+            icon={CheckCircle}
+            badge={{ text: "Success Rate" }}
+          />
+          <StatsCard
+            title="Failed"
+            value={stats.failedRuns}
+            description="Failed analyses"
+            icon={XCircle}
+            badge={{ text: "Errors" }}
+          />
+        </div>
+
+        {/* Recent Projects */}
+        <Card className="bg-[#1A1A1A] border-[#333333]">
+          <CardHeader>
+            <div className="flex items-center justify-between">
               <div>
-                <Code className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
-                <p className="text-muted-foreground mb-6">
-                  Get started by uploading code files or cloning a repository
-                </p>
-                <div className="flex justify-center space-x-4">
-                  <Button onClick={() => setUploadModalOpen(true)} className="bg-gold text-black hover:bg-gold-light">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Files
-                  </Button>
-                  <Button
-                    onClick={() => setCloneModalOpen(true)}
-                    variant="outline"
-                    className="border-gold/50 text-gold hover:bg-gold/10"
-                  >
-                    <GitBranch className="w-4 h-4 mr-2" />
-                    Clone Repository
-                  </Button>
+                <CardTitle className="text-white">Recent Projects</CardTitle>
+                <CardDescription>Your latest code analysis projects</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="border-[#333333] hover:border-[#D4AF37] bg-transparent">
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : projects.length === 0 ? (
+              <EmptyState
+                icon={Code}
+                title="No projects yet"
+                description="Get started by uploading your first project for analysis. SniffAI will scan for AI-generated code, security issues, and quality problems."
+                action={{
+                  label: "Upload Your First Project",
+                  onClick: handleUploadFile,
+                }}
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-[#333333] hover:bg-[#1A1A1A]">
+                    <TableHead className="text-[#D4AF37]">Project Name</TableHead>
+                    <TableHead className="text-[#D4AF37]">Source Type</TableHead>
+                    <TableHead className="text-[#D4AF37]">Files</TableHead>
+                    <TableHead className="text-[#D4AF37]">Created</TableHead>
+                    <TableHead className="text-[#D4AF37]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {projects.map((project) => (
+                    <TableRow key={project.id} className="border-[#333333] hover:bg-[#1A1A1A]">
+                      <TableCell className="font-medium text-white">{project.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-[#333333] text-muted-foreground">
+                          {project.sourceType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{project.fileCount || 0} files</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {new Date(project.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="hover:bg-[#333333] hover:text-[#D4AF37]"
+                          onClick={() => router.push(`/projects/${project.id}`)}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card
+            className="bg-[#1A1A1A] border-[#333333] hover:border-[#D4AF37] transition-colors cursor-pointer"
+            onClick={() => router.push("/test")}
+          >
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]/10">
+                  <Target className="h-5 w-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm text-white">Quick Test</CardTitle>
+                  <CardDescription className="text-xs">Test single file analysis</CardDescription>
                 </div>
               </div>
-            ) : (
-              <div>
-                <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">No projects found</h3>
-                <p className="text-muted-foreground">
-                  No projects match your search criteria. Try adjusting your search terms.
-                </p>
+            </CardHeader>
+          </Card>
+
+          <Card className="bg-[#1A1A1A] border-[#333333] hover:border-[#D4AF37] transition-colors cursor-pointer">
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]/10">
+                  <Shield className="h-5 w-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm text-white">Security Scan</CardTitle>
+                  <CardDescription className="text-xs">Find vulnerabilities</CardDescription>
+                </div>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <Card key={project.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">{project.name}</CardTitle>
-                      <CardDescription className="flex items-center space-x-2 mt-1">
-                        {project.source === "git" ? <GitBranch className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
-                        <span className="truncate">
-                          {project.source === "git"
-                            ? project.sourceUrl?.replace("https://github.com/", "")
-                            : `${project.fileCount || 0} files uploaded`}
-                        </span>
-                      </CardDescription>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleStartAnalysis(project.id)}
-                          disabled={project.lastRunStatus === "running" || project.lastRunStatus === "queued"}
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Run Analysis
-                        </DropdownMenuItem>
-                        {project.lastRunId && project.lastRunStatus === "succeeded" && (
-                          <DropdownMenuItem asChild>
-                            <Link href={`/projects/${project.id}/runs/${project.lastRunId}/results`}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Results
-                            </Link>
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => setDeleteProjectId(project.id)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Status</span>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(project.lastRunStatus)}
-                        <Badge className={getStatusColor(project.lastRunStatus)}>{project.lastRunStatus}</Badge>
-                      </div>
-                    </div>
+            </CardHeader>
+          </Card>
 
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Created</span>
-                      <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Last Updated</span>
-                      <span>{new Date(project.updatedAt).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="pt-3 border-t">
-                      {project.lastRunStatus === "succeeded" && project.lastRunId ? (
-                        <Button asChild className="w-full bg-gold text-black hover:bg-gold-light">
-                          <Link href={`/projects/${project.id}/runs/${project.lastRunId}/results`}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Results
-                          </Link>
-                        </Button>
-                      ) : project.lastRunStatus === "running" || project.lastRunStatus === "queued" ? (
-                        <Button asChild variant="outline" className="w-full bg-transparent">
-                          <Link href={`/projects/${project.id}`}>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            View Progress
-                          </Link>
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleStartAnalysis(project.id)}
-                          variant="outline"
-                          className="w-full"
-                          disabled={startAnalysisMutation.isPending}
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Start Analysis
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+          <Card className="bg-[#1A1A1A] border-[#333333] hover:border-[#D4AF37] transition-colors cursor-pointer">
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]/10">
+                  <AlertCircle className="h-5 w-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm text-white">Quality Check</CardTitle>
+                  <CardDescription className="text-xs">Code quality analysis</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
-
-      {/* Modals */}
       <UploadModal open={uploadModalOpen} onOpenChange={setUploadModalOpen} onProjectCreated={handleProjectCreated} />
-
-      <CloneModal open={cloneModalOpen} onOpenChange={setCloneModalOpen} onProjectCreated={handleProjectCreated} />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteProjectId} onOpenChange={() => setDeleteProjectId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone and will remove all associated
-              analysis results.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteProjectId && handleDeleteProject(deleteProjectId)}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </MainLayout>
   )
 }

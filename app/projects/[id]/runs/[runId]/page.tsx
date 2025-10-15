@@ -1,230 +1,326 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { MainLayout } from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowLeft, Clock, CheckCircle, XCircle, AlertTriangle, Terminal } from "lucide-react"
-import { apiService } from "@/lib/api"
-import { formatDistanceToNow } from "date-fns"
-import Link from "next/link"
+import { Progress } from "@/components/ui/progress"
+import { ArrowLeft, Clock, CheckCircle, XCircle, Activity, Terminal, Eye, RefreshCw } from "lucide-react"
+import type { Project, AnalysisRun } from "@/lib/models"
+import { ClientOperations } from "@/lib/client-operations"
 
-export default function AnalysisStatusPage({ params }: { params: { id: string; runId: string } }) {
+export default function RunStatusPage() {
+  const params = useParams()
   const router = useRouter()
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const projectId = params.id as string
+  const runId = params.runId as string
 
-  const { data: run, refetch } = useQuery({
-    queryKey: ["analysis-run", params.id, params.runId],
-    queryFn: () => apiService.getAnalysisRun(params.id, params.runId),
-    refetchInterval: autoRefresh ? 2000 : false,
-  })
-
-  const { data: logs = [] } = useQuery({
-    queryKey: ["analysis-logs", params.id, params.runId],
-    queryFn: () => apiService.getAnalysisLogs(params.id, params.runId),
-    refetchInterval: autoRefresh ? 3000 : false,
-  })
+  const [project, setProject] = useState<Project | null>(null)
+  const [run, setRun] = useState<AnalysisRun | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    if (run?.status === "succeeded") {
-      setAutoRefresh(false)
-      // Auto-redirect to results after 2 seconds
-      const timer = setTimeout(() => {
-        router.push(`/projects/${params.id}/runs/${params.runId}/results`)
-      }, 2000)
-      return () => clearTimeout(timer)
-    } else if (run?.status === "failed") {
-      setAutoRefresh(false)
+    if (projectId && runId) {
+      fetchProject()
+      fetchRun()
     }
-  }, [run?.status, router, params.id, params.runId])
+  }, [projectId, runId])
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (run && (run.status === "queued" || run.status === "running")) {
+      interval = setInterval(() => {
+        fetchRun()
+        // Simulate progress
+        setProgress((prev) => Math.min(prev + Math.random() * 10, 95))
+      }, 2000)
+    } else if (run && run.status === "completed" && run.results) {
+      // Auto-redirect to results after 3 seconds
+      setTimeout(() => {
+        router.push(`/projects/${projectId}/runs/${runId}/results`)
+      }, 3000)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [run, projectId, runId, router])
+
+  const fetchProject = async () => {
+    try {
+      const data = await ClientOperations.getProject(projectId)
+      setProject(data)
+    } catch (error) {
+      console.error("Failed to fetch project:", error)
+    }
+  }
+
+  const fetchRun = async () => {
+    try {
+      const data = await ClientOperations.getAnalysisRun(runId)
+      setRun(data)
+      if (data?.status === "completed") {
+        setProgress(100)
+      }
+    } catch (error) {
+      console.error("Failed to fetch run:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "queued":
-        return <Clock className="w-5 h-5 text-yellow-500" />
-      case "running":
-        return <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      case "succeeded":
-        return <CheckCircle className="w-5 h-5 text-green-500" />
+      case "completed":
+        return <CheckCircle className="h-5 w-5 text-green-400" />
       case "failed":
-        return <XCircle className="w-5 h-5 text-red-500" />
+        return <XCircle className="h-5 w-5 text-red-400" />
+      case "running":
+        return <Activity className="h-5 w-5 text-[#D4AF37] animate-pulse" />
       default:
-        return <AlertTriangle className="w-5 h-5 text-gray-500" />
+        return <Clock className="h-5 w-5 text-gray-400" />
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      queued: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-      running: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      succeeded: "bg-green-500/10 text-green-500 border-green-500/20",
-      failed: "bg-red-500/10 text-red-500 border-red-500/20",
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "text-green-400"
+      case "failed":
+        return "text-red-400"
+      case "running":
+        return "text-[#D4AF37]"
+      default:
+        return "text-gray-400"
     }
+  }
 
+  const formatDuration = (start: Date, end?: Date) => {
+    const endTime = end || new Date()
+    const duration = Math.floor((endTime.getTime() - start.getTime()) / 1000)
+    if (duration < 60) return `${duration}s`
+    if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`
+    return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
+  }
+
+  if (loading) {
     return (
-      <Badge className={variants[status as keyof typeof variants] || "bg-gray-500/10 text-gray-500 border-gray-500/20"}>
-        {status}
-      </Badge>
+      <MainLayout>
+        <div className="container px-6 py-8">
+          <div className="flex justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        </div>
+      </MainLayout>
     )
   }
 
-  const getLogLevelColor = (level: string) => {
-    switch (level) {
-      case "error":
-        return "text-red-400"
-      case "warning":
-        return "text-yellow-400"
-      case "success":
-        return "text-green-400"
-      case "info":
-      default:
-        return "text-blue-400"
-    }
-  }
-
-  if (!run) {
+  if (!run || !project) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-      </div>
+      <MainLayout>
+        <div className="container px-6 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-white mb-2">Run Not Found</h2>
+            <p className="text-muted-foreground mb-6">The analysis run you're looking for doesn't exist.</p>
+            <Button
+              onClick={() => router.push(`/projects/${projectId}`)}
+              className="bg-[#D4AF37] hover:bg-[#FFD700] text-[#0D0D0D]"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Project
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <MainLayout>
+      <div className="container px-6 py-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/projects/${params.id}`}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Project
-              </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/projects/${projectId}`)}
+              className="hover:bg-[#333333] hover:text-[#D4AF37]"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Project
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Analysis Status</h1>
-              <p className="text-muted-foreground">
-                Started {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
-              </p>
+              <h1 className="text-3xl font-bold text-white">Analysis Run</h1>
+              <p className="text-muted-foreground">{project.name}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            {getStatusIcon(run.status)}
-            {getStatusBadge(run.status)}
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchRun}
+              className="border-[#333333] hover:border-[#D4AF37] bg-transparent"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            {run.status === "completed" && run.results && (
+              <Button
+                onClick={() => router.push(`/projects/${projectId}/runs/${runId}/results`)}
+                className="bg-[#D4AF37] hover:bg-[#FFD700] text-[#0D0D0D] font-semibold"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Results
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Status Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Analysis Progress</CardTitle>
-              <CardDescription>Current status and progress information</CardDescription>
+        {/* Status Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="bg-[#1A1A1A] border-[#333333]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-muted-foreground">Status</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {run.status === "running" && (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Overall Progress</span>
-                      <span>{run.progress}%</span>
-                    </div>
-                    <Progress value={run.progress} className="h-3" />
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Current Phase</span>
-                      <span className="text-sm font-medium">{run.currentPhase}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Files Processed</span>
-                      <span className="text-sm font-medium">
-                        {run.filesProcessed} / {run.totalFiles}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {run.status === "succeeded" && (
-                <div className="text-center space-y-4">
-                  <CheckCircle className="w-16 h-16 mx-auto text-green-500" />
-                  <div>
-                    <h3 className="text-lg font-medium text-green-500">Analysis Complete!</h3>
-                    <p className="text-muted-foreground">
-                      Found {run.findingsCount} issues in {run.duration} seconds
-                    </p>
-                  </div>
-                  <Button asChild className="bg-gold text-black hover:bg-gold-light">
-                    <Link href={`/projects/${params.id}/runs/${params.runId}/results`}>View Results</Link>
-                  </Button>
-                </div>
-              )}
-
-              {run.status === "failed" && (
-                <div className="text-center space-y-4">
-                  <XCircle className="w-16 h-16 mx-auto text-red-500" />
-                  <div>
-                    <h3 className="text-lg font-medium text-red-500">Analysis Failed</h3>
-                    <p className="text-muted-foreground">{run.errorMessage}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => refetch()}>
-                    Retry Analysis
-                  </Button>
-                </div>
-              )}
-
-              {run.status === "queued" && (
-                <div className="text-center space-y-4">
-                  <Clock className="w-16 h-16 mx-auto text-yellow-500" />
-                  <div>
-                    <h3 className="text-lg font-medium text-yellow-500">Analysis Queued</h3>
-                    <p className="text-muted-foreground">Waiting for available resources...</p>
-                  </div>
-                </div>
-              )}
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                {getStatusIcon(run.status)}
+                <span className={`text-lg font-semibold capitalize ${getStatusColor(run.status)}`}>{run.status}</span>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Live Logs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Terminal className="w-5 h-5" />
-                <span>Live Logs</span>
-              </CardTitle>
-              <CardDescription>Real-time analysis output</CardDescription>
+          <Card className="bg-[#1A1A1A] border-[#333333]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-muted-foreground">Started</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-96 w-full rounded-md border bg-black p-4">
-                <div className="space-y-1 font-mono text-sm">
-                  {logs.length === 0 ? (
-                    <div className="text-muted-foreground">No logs available yet...</div>
-                  ) : (
-                    logs.map((log: any) => (
-                      <div key={log.id} className="flex space-x-2">
-                        <span className="text-muted-foreground text-xs">
-                          {new Date(log.timestamp).toLocaleTimeString()}
-                        </span>
-                        <span className={`text-xs font-medium ${getLogLevelColor(log.level)}`}>
-                          [{log.level.toUpperCase()}]
-                        </span>
-                        <span className="text-white text-xs">{log.message}</span>
-                      </div>
-                    ))
-                  )}
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-[#D4AF37]" />
+                <span className="text-white">{new Date(run.startedAt).toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1A1A1A] border-[#333333]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-muted-foreground">Duration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <Activity className="h-4 w-4 text-[#D4AF37]" />
+                <span className="text-white">{formatDuration(run.startedAt, run.completedAt)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1A1A1A] border-[#333333]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-muted-foreground">Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-white">{progress.toFixed(0)}%</span>
+                  <span className="text-muted-foreground">
+                    {run.status === "completed" ? "Complete" : run.status === "failed" ? "Failed" : "Running"}
+                  </span>
                 </div>
-              </ScrollArea>
+                <Progress value={progress} className="h-2" />
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Status Message */}
+        {run.status === "completed" && run.results && (
+          <Card className="bg-green-900/20 border-green-400">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-6 w-6 text-green-400" />
+                <div>
+                  <h3 className="text-lg font-semibold text-green-400">Analysis Complete!</h3>
+                  <p className="text-green-300">
+                    Found {run.results.issues.length} issues, {run.results.aiDetection.likelihood}% AI likelihood.
+                    Redirecting to results in 3 seconds...
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {run.status === "failed" && (
+          <Card className="bg-red-900/20 border-red-400">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <XCircle className="h-6 w-6 text-red-400" />
+                <div>
+                  <h3 className="text-lg font-semibold text-red-400">Analysis Failed</h3>
+                  <p className="text-red-300">{run.error || "An unexpected error occurred during analysis."}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(run.status === "queued" || run.status === "running") && (
+          <Card className="bg-[#D4AF37]/10 border-[#D4AF37]">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <Activity className="h-6 w-6 text-[#D4AF37] animate-pulse" />
+                <div>
+                  <h3 className="text-lg font-semibold text-[#D4AF37]">
+                    {run.status === "queued" ? "Analysis Queued" : "Analysis Running"}
+                  </h3>
+                  <p className="text-[#D4AF37]/80">
+                    {run.status === "queued"
+                      ? "Your analysis is in the queue and will start shortly."
+                      : "Analyzing your code for AI detection, security issues, and quality problems."}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Logs */}
+        <Card className="bg-[#1A1A1A] border-[#333333]">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <Terminal className="h-5 w-5 text-[#D4AF37]" />
+              <CardTitle className="text-white">Analysis Logs</CardTitle>
+            </div>
+            <CardDescription>Real-time output from the analysis process</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-96 w-full rounded-md border border-[#333333] bg-[#0D0D0D] p-4">
+              <div className="font-mono text-sm space-y-1">
+                {run.logs.length === 0 ? (
+                  <div className="text-muted-foreground">No logs available yet...</div>
+                ) : (
+                  run.logs.map((log, index) => (
+                    <div key={index} className="text-green-400">
+                      <span className="text-muted-foreground">[{new Date().toLocaleTimeString()}]</span> {log}
+                    </div>
+                  ))
+                )}
+                {(run.status === "queued" || run.status === "running") && (
+                  <div className="text-[#D4AF37] animate-pulse">
+                    <span className="text-muted-foreground">[{new Date().toLocaleTimeString()}]</span>
+                    {run.status === "queued" ? " Waiting in queue..." : " Analysis in progress..."}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </MainLayout>
   )
 }
