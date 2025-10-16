@@ -513,19 +513,19 @@ export default function ResultsPage() {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="findings" className="mt-6">
+                  <TabsContent value="findings" className="mt-6 max-h-[600px] overflow-y-auto">
                     <FindingsTable issues={filteredIssues} />
                   </TabsContent>
 
-                  <TabsContent value="coverage" className="mt-6">
+                  <TabsContent value="coverage" className="mt-6 max-h-[600px] overflow-y-auto">
                     <CoverageView coverage={displayResults.coverage} />
                   </TabsContent>
 
-                  <TabsContent value="security" className="mt-6">
+                  <TabsContent value="security" className="mt-6 max-h-[600px] overflow-y-auto">
                     <SecurityView issues={filteredSecurityIssues} />
                   </TabsContent>
 
-                  <TabsContent value="api" className="mt-6">
+                  <TabsContent value="api" className="mt-6 max-h-[600px] overflow-y-auto">
                     <ApiIssuesView issues={filteredApiIssues} />
                   </TabsContent>
                 </Tabs>

@@ -82,16 +82,16 @@ export function FindingsTable({ issues }: FindingsTableProps) {
                     )}
                   </Button>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-3 mb-2">
+                    <div className="flex items-center space-x-3 mb-2 flex-wrap gap-2">
                       <Badge className={getSeverityColor(issue.severity || "low")}>{issue.severity || "low"}</Badge>
                       <Badge variant="outline" className={getCategoryColor(issue.category || "other")}>
                         {issue.category || "other"}
                       </Badge>
                     </div>
-                    <p className="text-white font-medium truncate">
+                    <p className="text-white font-medium break-words">
                       {issue.message || (issue as any).title || "No message available"}
                     </p>
-                    <div className="flex items-center space-x-4 mt-1 text-sm text-muted-foreground">
+                    <div className="flex items-center space-x-4 mt-1 text-sm text-muted-foreground flex-wrap gap-2">
                       <div className="flex items-center space-x-1 min-w-0">
                         <FileText className="h-3 w-3 shrink-0" />
                         <span className="truncate" title={(issue as any).filePath || issue.file || "Unknown file"}>
@@ -102,8 +102,8 @@ export function FindingsTable({ issues }: FindingsTableProps) {
                         </span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="whitespace-nowrap">
                           Line {(issue as any).line ?? (issue as any).lineNumber ?? 0}:
                           {(issue as any).column ?? (issue as any).columnNumber ?? 0}
                         </span>
@@ -118,13 +118,13 @@ export function FindingsTable({ issues }: FindingsTableProps) {
             <div className="mt-2 p-4 bg-[#1A1A1A] border border-[#333333] rounded-lg space-y-4">
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2">File Location</h4>
-                <p className="text-sm text-muted-foreground font-mono">{issue.file || "Unknown file"}</p>
+                <p className="text-sm text-muted-foreground font-mono break-words">{issue.file || "Unknown file"}</p>
               </div>
 
               {(issue.code || (issue as any).codeSnippet) && (
                 <div>
                   <h4 className="text-sm font-semibold text-white mb-2">Code Context</h4>
-                  <pre className="text-sm bg-[#0D0D0D] border border-[#333333] rounded p-3 overflow-x-auto">
+                  <pre className="text-sm bg-[#0D0D0D] border border-[#333333] rounded p-3 overflow-x-auto max-h-[300px] overflow-y-auto">
                     <code className="text-green-400">{issue.code ?? (issue as any).codeSnippet}</code>
                   </pre>
                 </div>
@@ -133,10 +133,10 @@ export function FindingsTable({ issues }: FindingsTableProps) {
               {issue.suggestion && (
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
-                    <Lightbulb className="h-4 w-4 text-[#D4AF37]" />
+                    <Lightbulb className="h-4 w-4 text-[#D4AF37] shrink-0" />
                     <h4 className="text-sm font-semibold text-white">Suggested Fix</h4>
                   </div>
-                  <p className="text-sm text-[#D4AF37] bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded p-3">
+                  <p className="text-sm text-[#D4AF37] bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded p-3 break-words">
                     {issue.suggestion}
                   </p>
                 </div>

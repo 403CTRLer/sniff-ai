@@ -1,11 +1,18 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Code, Zap, Shield } from "lucide-react"
 
 export function Header() {
+  const router = useRouter()
+
+  const handleSecurityScan = () => {
+    router.push("/?scan=true")
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#333333] bg-[#0D0D0D]/95 backdrop-blur supports-[backdrop-filter]:bg-[#0D0D0D]/60">
       <div className="container flex h-16 items-center justify-between px-6">
@@ -39,6 +46,7 @@ export function Header() {
             variant="outline"
             size="sm"
             className="hidden sm:flex border-[#333333] hover:border-[#D4AF37] bg-transparent"
+            onClick={handleSecurityScan}
           >
             <Shield className="mr-2 h-4 w-4" />
             Security Scan

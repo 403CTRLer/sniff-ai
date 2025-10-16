@@ -281,7 +281,10 @@ export default function DashboardPage() {
             </CardHeader>
           </Card>
 
-          <Card className="bg-[#1A1A1A] border-[#333333] hover:border-[#D4AF37] transition-colors cursor-pointer">
+          <Card
+            className="bg-[#1A1A1A] border-[#333333] hover:border-[#D4AF37] transition-colors cursor-pointer"
+            onClick={handleUploadFile}
+          >
             <CardHeader>
               <div className="flex items-center space-x-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]/10">
